@@ -44,17 +44,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Using ifaces {:?}", args);
         println!("Using config {:?}", pcap_config);
 
-        let mut handles: Vec<Arc<pcap_async::Handle>> = vec![];
+        let mut handles: Vec<(String, Arc<pcap_async::Handle>)> = vec![];
 
         for iface in args.drain(1..) {
             let h = pcap_async::Handle::live_capture(iface.as_str())
                 .map_err(|e| LocalError::new(e.to_string()))?;
-            handles.push(h);
+            handles.push((iface, h));
         }
 
         let packet_streams: Result<Vec<_>, Box<dyn Error>> = handles
             .iter()
-            .map(|handle| {
+            .map(|(_, handle)| {
                 pcap_async::PacketStream::new(pcap_config.clone(), handle.clone())
                     .map_err(|e| LocalError::new(e.to_string()))
             })
@@ -74,7 +74,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             match lasttime.elapsed() {
                 Ok(elapsed) if elapsed > interval => {
                     let rate = (*seen) as f64 / (elapsed.as_secs() as f64);
-                    println!("{} in {} ({} bytes/sec)", seen, elapsed.as_millis(), rate);
+                    for (iface, h) in handles.iter() {
+                        let stats = h.stats().unwrap();
+                        println!("{} Stats====\n ifaceDrop={}\n kDrop={}\n received={}",iface, stats.dropped_by_interface, stats.dropped_by_kernel, stats.received);
+                    }
+                    println!("Totals: {} in {} ({} bytes/sec)", seen, elapsed.as_millis(), rate);
                     *seen = 0;
                     *lasttime = SystemTime::now();
                 },
