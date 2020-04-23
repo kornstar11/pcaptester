@@ -1,0 +1,15 @@
+[package]
+name = "pcaptester"
+version = "0.1.0"
+authors = ["ben kornmeier <ben@protectwise.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+futures = {version = "0.3"}
+pcap-async = { git = "https://github.com/protectwise/pcap-async.git", branch="debug_crap_performance" }
+tokio = { version = "0.2", default-features = false, features = ["io-driver", "rt-threaded", "signal", "time","macros"] }
+
+[patch.crates-io]
+tokio = { git = "https://github.com/dbcfd/tokio.git", branch = "poll-evented-error-2413" }
