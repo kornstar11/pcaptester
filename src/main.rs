@@ -40,7 +40,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         //Ok(())
         Err(LocalError::new(String::from("Missing ifaces")))
     } else {
-        let pcap_config = pcap_async::Config::default();
+        let mut pcap_config = pcap_async::Config::default();
+        pcap_config.with_max_packets_read(10000);
+        let interval = Duration::from_secs(1);
         println!("Using config {:?}", pcap_config);
 
         let mut handles: Vec<(String, Arc<pcap_async::Handle>)> = vec![];
@@ -80,7 +82,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             packet_streams.remove(0).boxed()
         };
 
-        let interval = Duration::from_secs(1);
         let mut s = stream
             .scan((0 as u32, SystemTime::now()), |(seen, lasttime), p| {
             let p = p.unwrap();
