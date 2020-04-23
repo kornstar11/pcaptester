@@ -3,8 +3,8 @@ use std::error::Error;
 use tokio::prelude::*;
 use tokio::time::{delay_for, timeout};
 use std::sync::Arc;
-use futures::{FutureExt, Stream, StreamExt, TryStreamExt, select};
-use std::time::{Instant, Duration};
+use futures::{FutureExt, Stream, StreamExt, TryStreamExt, select, future};
+use std::time::{Instant, Duration, SystemTime};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Debug)]
@@ -66,30 +66,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map_err(|e| LocalError::new(e.to_string()))?
             .boxed();
 
+        let interval = Duration::from_secs(1);
+        let mut s = stream
+            .scan((0 as u32, SystemTime::now()), |(seen, lasttime), p| {
+            let p = p.unwrap();
+            *seen += p.iter().map(|p| p.actual_length()).sum::<u32>();
+            match lasttime.elapsed() {
+                Ok(elapsed) if elapsed > interval => {
+                    let rate = (*seen) as f64 / (elapsed.as_secs() as f64);
+                    println!("{} in {} ({} bytes/sec)", seen, elapsed.as_millis(), rate);
+                    *seen = 0;
+                    *lasttime = SystemTime::now();
+                },
+                _ => {
+                },
+            }
+            future::ready(Some(()))
+            }).collect::<Vec<_>>();
 
-        // let mut d = delay_for(Duration::from_millis(2000)).map(|any| {
-        //     println!("Done");
-        //     any
-        // }).fuse();
-        let mut counter = Arc::new(AtomicUsize::new(0));
-
-        let mut s = stream.map(|p| {
-            let c = counter.fetch_add(p.unwrap().len(), Ordering::SeqCst);
-            println!("counter {}", c);
-            c
-
-        }).collect::<Vec<usize>>();
-
-        let res = timeout(Duration::from_secs(1), s).await;
-
-
-        // let res = select! {
-        //     sv = s => sv,
-        //     _ = d => counter.load(Ordering::SeqCst),
-        // };
-
-        let final_count = counter.load(Ordering::SeqCst);
-        println!("Elapsed: {:?}  {}", res, final_count);
+        s.await;
 
 
         Ok(())
