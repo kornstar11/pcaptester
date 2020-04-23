@@ -59,12 +59,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .map_err(|e| LocalError::new(e.to_string()))
             })
             .collect();
-        let packet_streams = packet_streams?;
-        let stream = pcap_async::BridgeStream::new(
-            packet_streams,
-        )
-            .map_err(|e| LocalError::new(e.to_string()))?
-            .boxed();
+        let mut packet_streams = packet_streams?;
+
+        let stream = if packet_streams.len() > 1 {
+            println!("Using BridgeStream");
+            pcap_async::BridgeStream::new(
+                packet_streams,
+            )
+                .map_err(|e| LocalError::new(e.to_string()))?
+                .boxed()
+        } else {
+            println!("Using Normal stream");
+            packet_streams.remove(0).boxed()
+        };
 
         let interval = Duration::from_secs(1);
         let mut s = stream
