@@ -41,10 +41,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Err(LocalError::new(String::from("Missing ifaces")))
     } else {
         let pcap_config = pcap_async::Config::default();
-        println!("Using ifaces {:?}", args);
         println!("Using config {:?}", pcap_config);
 
         let mut handles: Vec<(String, Arc<pcap_async::Handle>)> = vec![];
+
+        let force_bridge = if args.remove(1) == String::from("true") {
+            true
+        } else {
+            false
+        };
+
+        println!("Using ifaces {:?}", args);
 
         for iface in args.drain(1..) {
             let h = pcap_async::Handle::live_capture(iface.as_str())
@@ -61,7 +68,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect();
         let mut packet_streams = packet_streams?;
 
-        let stream = if packet_streams.len() > 1 {
+        let stream = if packet_streams.len() > 1 || force_bridge {
             println!("Using BridgeStream");
             pcap_async::BridgeStream::new(
                 packet_streams,
